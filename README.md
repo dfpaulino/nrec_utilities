@@ -76,8 +76,11 @@ The destination directories are created automatically if they don't exist.
 
 The script is run as a module from the `src` directory (it imports the
 `nrec_utils` package, so it must be run with `python -m`, not by file path).
-It only uses the Python standard library, so there is nothing to install
-besides Python >= 3.13.
+The migration script itself only uses the Python standard library, so it runs
+on any Python >= 3.13. The package as a whole depends on numpy and
+opencv-python (used by the occlusion classes); install them with
+`pip install -e .` from the project root, or
+`pip install numpy opencv-python`.
 
 1. Clone the repository:
 
@@ -211,7 +214,65 @@ python src/nrec_utils/count_images.py /content/apples_left_labeled/train/positiv
 
 Options: `--ext` (default `png`) and `--subdir` (default `Images`).
 
+## Running tests
+
+The tests live in `tests/` and use [pytest](https://docs.pytest.org/), which
+is declared as a development dependency (the `dev` group in
+`pyproject.toml`).
+
+### Setting up the environment
+
+Use a Python >= 3.13 environment, for example a conda environment. From the
+project root (the directory containing `pyproject.toml`):
+
+```powershell
+conda activate project
+pip install -e . --group dev
+```
+
+This installs the package in editable mode (changes under `src/` take effect
+without reinstalling) plus the `dev` group (pytest). `--group` needs
+pip >= 25.1. Re-run it whenever the dependencies in `pyproject.toml` change.
+
+If pip fails with `[WinError 1260] This program is blocked by group policy`,
+the build backend (`uv_build`), which pip downloads into a temporary folder,
+is being blocked. Use uv to install into the same conda environment instead:
+
+```powershell
+uv pip install --python D:\anaconda\envs\project\python.exe -e . --group dev
+```
+
+### Running the tests
+
+Run pytest from the project root with the environment active.
+`testpaths = ["tests"]` in `pyproject.toml` only applies there, so running from
+`src/` collects no tests.
+
+```bash
+python -m pytest                                                    # all tests
+python -m pytest -v                                                 # one line per test
+python -m pytest tests/test_occlusion_base.py                       # one file
+python -m pytest tests/test_occlusion_base.py::test_get_occ_factor  # one test
+python -m pytest -k occ_name                                        # tests whose name matches
+```
+
+### Adding a test dependency
+
+Add the package to the `dev` group in `pyproject.toml`:
+
+```toml
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "<package>",
+]
+```
+
+then re-run `pip install -e . --group dev`.
+
 ## Requirements
 
 - Python >= 3.13
-- No third-party dependencies (standard library only)
+- numpy >= 2.5 (runtime, used by `nrec_utils.occlusions`)
+- opencv-python >= 5.0 (runtime, used by `nrec_utils.occlusions`)
+- pytest for development (installed by `pip install -e . --group dev`)
