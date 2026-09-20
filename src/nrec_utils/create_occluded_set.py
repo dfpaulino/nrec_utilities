@@ -41,6 +41,7 @@ from nrec_utils.occlusions import (
     OcclusionBase,
     available_occlusions,
     create_occlusion,
+    create_occlusions_instances
 )
 from nrec_utils.yolo_dataset import SPLITS, collect_yolo_pairs, even_stride_select
 
@@ -215,11 +216,13 @@ def create_occ_set(src_base_dir: str, dst_base_dir: str, copy_factor: float,
         )
 
     pairs_by_split = collect_yolo_pairs(src_root, splits, strict_xml=strict_xml)
-    occlusions = [create_occlusion(name, occ_factor) for name in occlusion_names]
-
+    #occlusions = [create_occlusion(name, occ_factor) for name in occlusion_names]
+    occlusions = create_occlusions_instances(occ_factor)
     totals = {'images_written': 0, 'images_failed': 0}
-    for occlusion in occlusions:
+
+    for occlusion in occlusions: 
         for split, pairs in pairs_by_split.items():
+            print(f'INFO - Running occlusion type {occlusion.get_occ_name()} in split {split}')
             counters = occlude_split(pairs, dst_root, split, occlusion,
                                      copy_factor, dry_run=dry_run, strict=strict)
             for key in totals:

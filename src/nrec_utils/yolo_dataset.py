@@ -141,6 +141,7 @@ def _pairs_for_split(image_dir: Path, label_dir: Path, split: str) -> list:
     if orphans:
         print(f"WARN - split [{split}]: {len(orphans)} label .txt have no image, ignored")
 
+    # the List of tuples- pair image and label Ordered by name: 
     return [(images_by_stem[stem], label_dir / f"{stem}.txt")
             for stem in sorted(images_by_stem)]
 

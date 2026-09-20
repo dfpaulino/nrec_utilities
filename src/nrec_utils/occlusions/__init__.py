@@ -11,6 +11,7 @@ OCCLUSION_REGISTRY = {
     MOTION_VIBRATION_OCCLUSION_NAME: MotionVibration,
 }
 
+OCCLUSION_REGISTRY_LIST = [MotionVibration]
 
 def available_occlusions() -> list:
     """The canonical names of every registered occlusion, sorted."""
@@ -39,11 +40,19 @@ def create_occlusion(name: str, occ_factor: float) -> OcclusionBase:
     return OCCLUSION_REGISTRY[canonical](occ_factor)
 
 
+def create_occlusions_instances(occ_factor:float) -> OcclusionBase:
+    instances=[]
+    for occ in OCCLUSION_REGISTRY_LIST:
+        instances.append(occ(occ_factor=occ_factor))
+    return instances
+
 __all__ = [
     "OcclusionBase",
     "MotionVibration",
     "MOTION_VIBRATION_OCCLUSION_NAME",
     "OCCLUSION_REGISTRY",
+    "OCCLUSION_REGISTRY_LIST"
     "available_occlusions",
     "create_occlusion",
+    "create_occlusions_instances"
 ]
