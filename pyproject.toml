@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 nrec-yolo = "nrec_utils.migrate_nrec_to_yolo:cli"
+nrec-occlude = "nrec_utils.create_occluded_set:cli"
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]

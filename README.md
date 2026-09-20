@@ -22,6 +22,15 @@ Both steps are run in one go by the `migrate_nrec_to_yolo` script.
     them into the YOLO layout.
   - `nrec_xml_to_yolo(...)` — converts the copied VOC `.xml` annotations into
     YOLO `.txt` labels, in place.
+- `src/nrec_utils/create_occluded_set.py` — command-line entry point that
+  generates occluded copies of an existing YOLO dataset, to be folded back into
+  a training set (see [Generating an occluded set](#generating-an-occluded-set)).
+- `src/nrec_utils/yolo_dataset.py` — generic YOLO-tree helpers shared by the two
+  scripts: `even_stride_select(...)` (the even sampling both use) and
+  `collect_yolo_pairs(...)` (validates a YOLO tree and enumerates its
+  image/label pairs).
+- `src/nrec_utils/occlusions/` — the occlusion implementations behind a common
+  `OcclusionBase` interface, plus the registry the CLI resolves names against.
 - `src/nrec_utils/count_images.py` — counts image files per scenario/trip
   directory, useful for sanity-checking the source dataset before sampling.
 
@@ -134,6 +143,118 @@ An equivalent `.vscode/launch.json` configuration:
   "args": ["--source", "caminho/para/dados", "--dest", "destino/para/dados", "--copy-factor", "0.5"]
 }
 ```
+
+## Generating an occluded set
+
+`create_occluded_set` takes a **clean YOLO dataset** — the output of the
+migration above — and produces a second YOLO tree holding degraded copies of a
+fraction of its frames. You then copy that tree's `images/` and `labels/` into
+your working dataset, so the model trains on the clean frames *plus* the
+degraded ones.
+
+**Prerequisite:** the source labels must already be `.txt`. Pointing this at a
+tree whose annotations are still `.xml` fails immediately with a message telling
+you to run the migration first — it does not silently produce an unlabelled set.
+
+### What the script does
+
+1. Validates that the source really is a YOLO tree (`images/{split}` +
+   `labels/{split}`, every image paired with a label) and fails before writing
+   anything if it is not.
+2. For each split it finds, selects `round(n * copy-factor)` frames, evenly
+   spaced across the sorted frame list — the same sampling the migration uses.
+3. Applies every requested occlusion to each selected frame, writing the result
+   to `{dest}/images/{split}/` and copying the frame's label verbatim to
+   `{dest}/labels/{split}/`, both renamed with the occlusion's name as a prefix:
+
+   ```
+   {source}/images/train/Image_141514_2014_023.png
+       -> {dest}/images/train/motionVibration_Image_141514_2014_023.png
+   {source}/labels/train/Image_141514_2014_023.txt
+       -> {dest}/labels/train/motionVibration_Image_141514_2014_023.txt
+   ```
+
+Splits are processed **independently**: an occluded frame only ever lands in the
+split it came from, so occluded copies never cross the train/val/test boundary.
+Selection is deterministic — no randomness — so a re-run with the same arguments
+reproduces the same files.
+
+Labels are copied unchanged, which is correct because the occlusions available
+today only alter pixel values and move no geometry. The script verifies this at
+runtime and refuses to write if an occlusion changes the image dimensions.
+
+Background frames (the negatives, which carry an empty `.txt`) are occluded like
+any other frame and keep their empty label — that empty file is what marks them
+as background.
+
+### Two factors, two jobs
+
+| Factor | Controls |
+| --- | --- |
+| `--copy-factor` | **How many** frames of each split get occluded. `0.1` occludes every tenth frame. |
+| `--occ-factor` | **How hard** the occlusion hits each of them. For `motionVibration` it scales the blur kernel; `0` is an identity copy. |
+
+### Arguments
+
+| Argument | Short | Required | Description |
+| --- | --- | --- | --- |
+| `--source` | `-s` | yes | Root of an existing **YOLO** dataset (the `--dest` of the migration). |
+| `--dest` | `-d` | yes | Root of the occluded dataset to create, used **exactly as given** — no `occ_<factor>` level is added. Must not be inside `--source`. |
+| `--copy-factor` | `-p` | yes | Fraction of each split's frames to occlude, a float in `(0, 1]`. |
+| `--occ-factor` | `-f` | yes | Occlusion strength, a float in `[0, 1]`. |
+| `--occlusion` | `-o` | no | Which occlusions to apply (default: all registered). All of them run over the *same* selected frames, so their outputs are directly comparable. |
+| `--splits` | | no | Which of `train`/`val`/`test` to process (default: all that exist). |
+| `--allow-stray-xml` | | no | Continue when the source labels still hold `.xml` that failed conversion. |
+| `--dry-run` | | no | Report what would be written without creating anything. |
+| `--strict` | | no | Abort on the first unreadable image instead of warning and skipping it. |
+
+### ⚠️ Filenames do not encode the occlusion factor
+
+The output name carries the occlusion name but **not** `--occ-factor`, so two
+runs at different factors produce *identical* filenames. Copying an occ-0.1 set
+and an occ-0.3 set into the same flat directory will silently overwrite one with
+the other. Keep one `--occ-factor` per working dataset, and name the destination
+directory after it (`occ_0.3/`) so you can tell them apart. Different occlusion
+*types* are safe — each has its own prefix.
+
+### How to run it
+
+```bash
+cd nrec_utilities/src
+python -m nrec_utils.create_occluded_set --source /path/to/yolo_dataset --dest /path/to/occ_0.3 --copy-factor 0.1 --occ-factor 0.3
+```
+
+or with the short options:
+
+```bash
+python -m nrec_utils.create_occluded_set -s /path/to/yolo_dataset -d /path/to/occ_0.3 -p 0.1 -f 0.3
+```
+
+Check the selection before generating anything:
+
+```bash
+python -m nrec_utils.create_occluded_set -s /path/to/yolo_dataset -d /path/to/occ_0.3 -p 0.1 -f 0.3 --dry-run
+```
+
+Then fold the result into your baseline set:
+
+```bash
+cp -r /path/to/occ_0.3/images/* /path/to/yolo_dataset/images/
+cp -r /path/to/occ_0.3/labels/* /path/to/yolo_dataset/labels/
+```
+
+### Adding a new occlusion
+
+1. Add a class in `src/nrec_utils/occlusions/` subclassing `OcclusionBase`,
+   taking `occ_factor` and passing its canonical name up to `super().__init__`.
+2. Add one line to `OCCLUSION_REGISTRY` in
+   `src/nrec_utils/occlusions/__init__.py`, keyed by that same name.
+
+The CLI's `--occlusion` choices and `--help` pick it up automatically. A test
+asserts every registry key matches its instance's `get_occ_name()`, so the name
+used on the command line and the name used as a filename prefix cannot drift
+apart. If the new occlusion moves geometry rather than only changing pixels,
+read the note in `OcclusionBase` first — its labels cannot just be copied.
 
 ## Source directory structure
 
