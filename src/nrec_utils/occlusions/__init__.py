@@ -1,6 +1,8 @@
 
 from nrec_utils.occlusions.occlusion_base import OcclusionBase
 from nrec_utils.occlusions.motion_vibration import MotionVibration
+#from nrec_utils.occlusions import fog_occlusion
+from nrec_utils.occlusions.fog_occlusion import Fog
 
 # The canonical name of an occlusion is what its instances report from
 # get_occ_name(), because that is what ends up as the output filename prefix.
@@ -49,6 +51,7 @@ def create_occlusions_instances(occ_factor:float) -> OcclusionBase:
 __all__ = [
     "OcclusionBase",
     "MotionVibration",
+    "Fog",
     "MOTION_VIBRATION_OCCLUSION_NAME",
     "OCCLUSION_REGISTRY",
     "OCCLUSION_REGISTRY_LIST"
