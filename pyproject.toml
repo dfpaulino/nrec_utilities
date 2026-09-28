@@ -10,10 +10,13 @@ requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.5",
     "opencv-python>=5.0",
+    "scipy>=1.18.1",
+    "tqdm>=4.70.1",
 ]
 
 [project.scripts]
 nrec-yolo = "nrec_utils.migrate_nrec_to_yolo:cli"
+nrec-occlude = "nrec_utils.create_occluded_set:cli"
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]

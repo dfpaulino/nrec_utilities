@@ -3,6 +3,8 @@ import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from nrec_utils.yolo_dataset import SPLITS, even_stride_select
+
 # YOLO class indices for the NREC person annotations. Both classes are kept:
 # "person-part" marks a partially visible person and is a separate class here.
 CLASS_MAP = {"person": 0, "person-part": 1}
@@ -13,8 +15,6 @@ CLASS_MAP = {"person": 0, "person-part": 1}
 # boxes of the 2015.11Soergels set, it maps the observed range exactly onto
 # [0, 720] x [0, 480] and brings the out-of-frame box count from 624 to 0.
 VOC_PIXEL_OFFSET = 0.5
-
-SPLITS = ("train", "val", "test")
 
 
 def nrec_select_images(src_base_dir:str='/content/apples_left_labeled',
@@ -118,13 +118,9 @@ def nrec_select_images(src_base_dir:str='/content/apples_left_labeled',
         img_files = sorted(f for f in img_files if f.lower().endswith(".png"))
         total_images = len(img_files)
         total_annotations = len(annotation_files)
-        # Exact count, at least one frame per scenario. Spreading the indices
-        # with round(i * total / count) keeps them strictly increasing (since
-        # total >= count), so we get exactly img_to_copy_cnt distinct frames
-        # at an even spacing rather than the nearest 1/N stride.
-        img_to_copy_cnt = max(1, round(total_images*percentage_to_copy))
-        selected = [img_files[round(i * total_images / img_to_copy_cnt)]
-                    for i in range(img_to_copy_cnt)]
+        # exact count, at least one frame per scenario - see even_stride_select
+        selected = even_stride_select(img_files, percentage_to_copy)
+        img_to_copy_cnt = len(selected)
 
 
         if total_annotations == total_images :
