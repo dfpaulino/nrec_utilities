@@ -13,7 +13,7 @@ OCCLUSION_REGISTRY = {
     MOTION_VIBRATION_OCCLUSION_NAME: MotionVibration,
 }
 
-OCCLUSION_REGISTRY_LIST = [MotionVibration]
+OCCLUSION_REGISTRY_LIST = [MotionVibration,Fog]
 
 def available_occlusions() -> list:
     """The canonical names of every registered occlusion, sorted."""

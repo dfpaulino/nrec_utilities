@@ -4,8 +4,6 @@ import numpy as np
 import random
 import cv2
 
-from PIL import Image
-from perlin_noise import PerlinNoise
 from nrec_utils.occlusions.occlusion_base import OcclusionBase
 #from nrec_utils.occlusions.utils.lime import LIME
 
