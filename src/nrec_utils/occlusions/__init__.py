@@ -1,6 +1,7 @@
 
 from nrec_utils.occlusions.occlusion_base import OcclusionBase
 from nrec_utils.occlusions.motion_vibration import MotionVibration
+from nrec_utils.occlusions.fog_occlusion import Fog
 #from nrec_utils.occlusions import fog_occlusion
 from nrec_utils.occlusions.fog_occlusion import Fog
 
@@ -13,7 +14,7 @@ OCCLUSION_REGISTRY = {
     MOTION_VIBRATION_OCCLUSION_NAME: MotionVibration,
 }
 
-OCCLUSION_REGISTRY_LIST = [MotionVibration]
+OCCLUSION_REGISTRY_LIST = [MotionVibration,Fog]
 
 def available_occlusions() -> list:
     """The canonical names of every registered occlusion, sorted."""
