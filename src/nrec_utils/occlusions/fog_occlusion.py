@@ -9,37 +9,9 @@ from perlin_noise import PerlinNoise
 from nrec_utils.occlusions.occlusion_base import OcclusionBase
 #from nrec_utils.occlusions.utils.lime import LIME
 
-def perlin_noise(w, h, depth):
-    p1 = Image.new('L', (w, h))
-    p2 = Image.new('L', (w, h))
-    p3 = Image.new('L', (w, h))
 
-#    scale = 1/130.0
-#    for y in range(h):
-#        for x in range(w):
-#            v = pnoise3(x * scale, y * scale, depth[y, x] * scale, octaves=1, persistence=0.5, lacunarity=2.0)
-#            color = int((v+1)*128.0)
-#            p1.putpixel((x, y), color)
-
-#    scale = 1/60.0
-#    for y in range(h):
-#        for x in range(w):
-#            v = pnoise3(x * scale, y * scale, depth[y, x] * scale, octaves=1, persistence=0.5, lacunarity=2.0)
-#            color = int((v+0.5)*128)
-#            p2.putpixel((x, y), color)
-
-#    scale = 1/10.0
-#    for y in range(h):
-#        for x in range(w):
-#            v = pnoise3(x * scale, y * scale, depth[y, x] * scale, octaves=1, persistence=0.5, lacunarity=2.0)
-#            color = int((v+1.2)*128)
-#            p3.putpixel((x, y), color)
-
-    perlin = (np.array(p1) + np.array(p2)/2 + np.array(p3)/4)/3
-
-    return perlin
-
-def generate_fog2(image, depth, visibility=None, fog_color=None):
+# copied from adverse_weather article
+def generate_fog_dummy(image, depth, visibility=None, fog_color=None):
     '''
     input:
         image - numpy array (h, w, c) 
@@ -118,7 +90,8 @@ def generate_fog2(image, depth, visibility=None, fog_color=None):
     I = I_ex + O_p[:,:,None] * I_al
     return I.astype(np.uint8)
 
-def fake_depth_map(image):
+# Not in use
+def fake_depth_map_simple(image):
   H,W=image.shape[0],image.shape[1]
 
   FOV=60 # degreed Field of View on vertical
@@ -155,6 +128,34 @@ def fake_depth_map(image):
   depth = np.tile(depth[:, None], (1, W))
   return depth
 
+def fake_depth_map(image, fov_v=60, cam_h=1.5, tilt_deg=20, z_max=300, sigma_frac=0.03):
+    """
+    see calculation log book - calc horizon line30/09/2026
+    """
+    H, W = image.shape[:2]
+    fy = (H / 2) / np.tan(np.radians(fov_v / 2)) # focal length
+    cy = H / 2  # center of img
+
+    theta = np.radians(tilt_deg)
+    v_h = cy - fy * np.tan(theta)            # horizon row, derived from tilt
+    #print(f'v_h {v_h}')
+
+    v = np.arange(H, dtype=float)
+    phi = theta + np.arctan((v - cy) / fy)   # ray angle below horizontal
+
+    # see logbook 03/10/2026 for trig. calculations
+    # rows below the horizon hit the ground (equivalent to phi > 0);
+    # rows at/above it are sky/far background and keep z_max
+    depth = np.full(H, z_max, dtype=float)
+    ground = v > v_h + 1
+    depth[ground] = cam_h / np.sin(phi[ground])   # distance along the ray to the ground
+    depth = np.clip(depth, 1.0, z_max)
+
+    # avoid the step, and use gaussian to smooth distance. 
+    depth = gaussian_filter1d(depth, sigma=sigma_frac * H)
+    # expand depth to a 2d. columns (W) are repeated
+    return np.tile(depth[:, None], (1, W))
+
 def getIlluminationMap_fromGray( img: np.ndarray) -> np.ndarray: 
     """
     Convert image to Grayscale
@@ -163,22 +164,14 @@ def getIlluminationMap_fromGray( img: np.ndarray) -> np.ndarray:
     return T
 
 
-def generate_fog(image,beta,fog_color):
-  
-  depth= fake_depth_map(image=image)
-  #fog_color=[[230,240,240]]
-  A = np.array([[[fog_color,fog_color,fog_color]]],dtype=np.uint8)
 
-  transmission=np.exp(-beta*depth)
-  foggy=np.round(image*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A).astype(np.uint8)
-  foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
-
-  return foggy
 
 class Fog(OcclusionBase):
 
     OCCLUSION_NAME='fogEffect'
-    BETA_BASE=0.01
+    BETA_BASE=0.04
+    MAX_VISIBILITY_Z = 50 # meters
+
     # define pxl intensity bins to check if scenario is dark or bright - values obtained by visual inspection!
     ILLUMINATION_BINS=[0,50,150,256]
     ILLUMINATION_TO_FOG = {0: (150, 180), 1: (210, 240), 2: (240, 255)}
@@ -196,6 +189,8 @@ class Fog(OcclusionBase):
        
        # occ_factor [0.1 0.2 0.3], betas from experimental view [0.01 0.02 0.03], and the last is really intense        
        beta = Fog.BETA_BASE*self._occ_factor*10
+
+       # estimate brightness to calc fog colour
        #T = self.getIlluminationMap(img=image)
        T = getIlluminationMap_fromGray(image)
        hist,bins = np.histogram(T, bins=Fog.ILLUMINATION_BINS, range=(0,1))
@@ -203,8 +198,21 @@ class Fog(OcclusionBase):
 
        fog_color=random.randint(Fog.ILLUMINATION_TO_FOG[illumination_bin][0],Fog.ILLUMINATION_TO_FOG[illumination_bin][1])
        #print(f' Illum index is {illumination_bin}- {hist}')
-       foggy_img = generate_fog(image=image,beta=beta,fog_color=fog_color)
+       foggy_img = self._generate_fog(image=image,beta=beta,fog_color=fog_color)
 
        #depth=fake_depth_map(image=image)
        #foggy_img = generate_fog2(image=image,depth=depth,fog_color=fog_color)
        return foggy_img
+
+    def _generate_fog(self,image,beta,fog_color):
+  
+        #depth= fake_depth_map_simple(image=image)
+        depth= fake_depth_map(image=image,z_max=Fog.MAX_VISIBILITY_Z,sigma_frac=0.1)
+        A = np.array([[[fog_color,fog_color,fog_color]]],dtype=np.uint8)
+
+        #Light transmission through fog follows the Beer-Lambert law 
+        transmission=np.exp(-beta*depth)
+        foggy=np.round(image*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A).astype(np.uint8)
+        foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
+
+        return foggy
