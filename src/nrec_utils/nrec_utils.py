@@ -94,72 +94,73 @@ def nrec_select_images(src_base_dir:str='/content/apples_left_labeled',
         raise ValueError(f"percentage_to_copy must be in (0, 1], got {percentage_to_copy}")
 
     if(positive):
-        src_base_dir_full=src_base_dir+"/"+type_dir+"/positive/2015.11Soergels"
+        src_base_dir_full=src_base_dir+"/"+type_dir+"/positive"
     else:
-        src_base_dir_full=src_base_dir+"/"+type_dir+"/negative/2015.11Soergels"
+        src_base_dir_full=src_base_dir+"/"+type_dir+"/negative"
 
     img_dst_dir = dst_base_dir+'/images/'+type_dir
     label_dst_dir = dst_base_dir+'/labels/'+type_dir
     os.makedirs(img_dst_dir, exist_ok=True)
     os.makedirs(label_dst_dir, exist_ok=True)
 
-    scenario_dirs = [ f.name for f in os.scandir(src_base_dir_full) if f.is_dir()]
-
+    farm_date_dirs = [f.name for f in os.scandir(src_base_dir_full) if f.is_dir()]
 
     total_img_copied=0
+    for farm_date_dir in farm_date_dirs:
+        scenario_dirs = [ f.name for f in os.scandir(src_base_dir_full+"/"+farm_date_dir) if f.is_dir()]
 
-    for d in scenario_dirs:
-        cur_scen_dir = src_base_dir_full+ "/" +d
-        print(" INFO - Current Scenario: "+cur_scen_dir)
+        for d in scenario_dirs:
+            cur_scen_dir = src_base_dir_full+ "/"+farm_date_dir+"/"+d
+            print(" INFO - Current Scenario: "+cur_scen_dir)
 
-        (root,_,img_files) =next(os.walk(cur_scen_dir+"/Images"))
-        (root,_,annotation_files) =next(os.walk(cur_scen_dir+"/Annotations"))
+            (root,_,img_files) =next(os.walk(cur_scen_dir+"/Images"))
+            (root,_,annotation_files) =next(os.walk(cur_scen_dir+"/Annotations"))
 
-        img_files = sorted(f for f in img_files if f.lower().endswith(".png"))
-        total_images = len(img_files)
-        total_annotations = len(annotation_files)
-        # exact count, at least one frame per scenario - see even_stride_select
-        selected = even_stride_select(img_files, percentage_to_copy)
-        img_to_copy_cnt = len(selected)
-
-
-        if total_annotations == total_images :
-            print (f'INFO - total_images [{total_images}] same as total_files [{total_images}] only {img_to_copy_cnt} will be copied.')
-        else:
-            print (f'WARN - total_images {total_images} not same as total_files {total_annotations}')
+            img_files = sorted(f for f in img_files if f.lower().endswith(".png"))
+            total_images = len(img_files)
+            total_annotations = len(annotation_files)
+            # exact count, at least one frame per scenario - see even_stride_select
+            selected = even_stride_select(img_files, percentage_to_copy)
+            img_to_copy_cnt = len(selected)
 
 
-        scenario_img_copied=0
-        for file_name in selected:
-
-            cmn_file_name = Path(file_name).stem
-
-            img_full_src_path = cur_scen_dir+'/Images/'+cmn_file_name+".png"
-            img_full_dst_path = img_dst_dir+"/"+cmn_file_name+".png"
-
-            annotation_full_src_path = cur_scen_dir+'/Annotations/'+cmn_file_name+".xml"
-            annotation_full_dst_path = label_dst_dir+"/"+cmn_file_name+".xml"
-
-            # annotations are only meaningful for positive (labeled) images, so
-            # a negative image is copied on its own merit
-            if positive and not Path(annotation_full_src_path).exists():
-                print(f"Error - missing files {img_full_src_path} or {annotation_full_src_path}")
-                continue
-            if not Path(img_full_src_path).exists():
-                print(f"Error - missing files {img_full_src_path}")
-                continue
-
-            shutil.copy(img_full_src_path,img_full_dst_path)
-            if positive:
-                shutil.copy(annotation_full_src_path,annotation_full_dst_path)
+            if total_annotations == total_images :
+                print (f'INFO - total_images [{total_images}] same as total_files [{total_images}] only {img_to_copy_cnt} will be copied.')
             else:
-                # empty label = explicit YOLO background frame
-                Path(label_dst_dir+"/"+cmn_file_name+".txt").touch()
+                print (f'WARN - total_images {total_images} not same as total_files {total_annotations}')
 
-            scenario_img_copied=scenario_img_copied+1
 
-        total_img_copied=total_img_copied+scenario_img_copied
-        print(f'Images copied for scenario [{scenario_img_copied}]')
+            scenario_img_copied=0
+            for file_name in selected:
+
+                cmn_file_name = Path(file_name).stem
+
+                img_full_src_path = cur_scen_dir+'/Images/'+cmn_file_name+".png"
+                img_full_dst_path = img_dst_dir+"/"+cmn_file_name+".png"
+
+                annotation_full_src_path = cur_scen_dir+'/Annotations/'+cmn_file_name+".xml"
+                annotation_full_dst_path = label_dst_dir+"/"+cmn_file_name+".xml"
+
+                # annotations are only meaningful for positive (labeled) images, so
+                # a negative image is copied on its own merit
+                if positive and not Path(annotation_full_src_path).exists():
+                    print(f"Error - missing files {img_full_src_path} or {annotation_full_src_path}")
+                    continue
+                if not Path(img_full_src_path).exists():
+                    print(f"Error - missing files {img_full_src_path}")
+                    continue
+
+                shutil.copy(img_full_src_path,img_full_dst_path)
+                if positive:
+                    shutil.copy(annotation_full_src_path,annotation_full_dst_path)
+                else:
+                    # empty label = explicit YOLO background frame
+                    Path(label_dst_dir+"/"+cmn_file_name+".txt").touch()
+
+                scenario_img_copied=scenario_img_copied+1
+
+            total_img_copied=total_img_copied+scenario_img_copied
+            print(f'Images copied for scenario [{scenario_img_copied}]')
 
     print(f'Total images copied [{total_img_copied}]')
     return total_img_copied
