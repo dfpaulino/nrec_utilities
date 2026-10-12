@@ -18,7 +18,7 @@ class MotionVibration(OcclusionBase):
         # bigger size more vibration induced
         # at least 1: a 0-size kernel makes cv2.filter2D fail (1x1 kernel returns the image unchanged)
         
-        kernel_vibration = self._generate_cross_kernel_weight_decay(self,image)
+        kernel_vibration = self._generate_cross_kernel_weight_decay(image)
         # convolve filter on image
         return cv2.filter2D(image,-1, kernel_vibration,borderType=cv2.BORDER_DEFAULT)
 
