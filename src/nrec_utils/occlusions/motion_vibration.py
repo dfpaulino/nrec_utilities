@@ -40,16 +40,19 @@ class MotionVibration(OcclusionBase):
         # apply weight decay over the filter. pixl influence reduces as it distances from the center.
         # apply  1 / (1+distance)  or use some sort of e^(-beta*distance)
         # we skip the center as its 1
-        center_filter=filter_shape//2
-        for i in range(center_filter +1,filter_shape):
-            dist_from_center= np.abs(i-center_filter)
-            weight = 1/(1+dist_from_center)
-            kernel_morph[center_filter,i]=kernel_morph[center_filter,i]*weight
-            kernel_morph[i,center_filter]=kernel_morph[i,center_filter]*weight
+        # Findings: this actually does not produce great visual distortion due to distance decay. So we stick with the simpe version of one's in a cross
+        # style
+        #
+        #center_filter=filter_shape//2
+        #for i in range(center_filter +1,filter_shape):
+        #    dist_from_center= np.abs(i-center_filter)
+        #    weight = 1/(1+dist_from_center)
+        #    kernel_morph[center_filter,i]=kernel_morph[center_filter,i]*weight
+        #    kernel_morph[i,center_filter]=kernel_morph[i,center_filter]*weight
 
-            kernel_morph[center_filter,(filter_shape-1-i)]=kernel_morph[center_filter,(filter_shape-1-i)]*weight
-            kernel_morph[(filter_shape-1-i),center_filter]=kernel_morph[(filter_shape-1-i),center_filter]*weight
-            #print(f'idx {(filter_shape-1-i)}')
+        #    kernel_morph[center_filter,(filter_shape-1-i)]=kernel_morph[center_filter,(filter_shape-1-i)]*weight
+        #    kernel_morph[(filter_shape-1-i),center_filter]=kernel_morph[(filter_shape-1-i),center_filter]*weight
+        #    #print(f'idx {(filter_shape-1-i)}')
         
         # filter normalization
         kernel_vibration = kernel_morph/np.sum(kernel_morph)
