@@ -7,7 +7,7 @@ from nrec_utils.occlusions.occlusion_base import OcclusionBase
 
 class MotionVibration(OcclusionBase):
     
-    INTERNAL_FACTOR=1
+    INTERNAL_FACTOR=0.25
     OCCLUSION_NAME='motionVibration'
 
     def __init__(self, occ_factor):
