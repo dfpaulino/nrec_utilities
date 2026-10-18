@@ -33,6 +33,7 @@ train/val leakage that inflates the metrics invisibly.
 import argparse
 import shutil
 from pathlib import Path
+import os
 
 import cv2
 import numpy as np
@@ -91,7 +92,11 @@ def occlude_pair(src_img: Path, src_label: Path, dst_img: Path, dst_label: Path,
     image unlabelled instead.
     """
     image = _imread(src_img)
-    occluded = occlusion.generate_occluded_image(image)
+
+    # read the annotation file, if not empty read the bboxs
+    bboxs=_get_bbox(src_label)
+    
+    occluded = occlusion.generate_occluded_image(image=image,bboxs=bboxs)
 
     if not isinstance(occluded, np.ndarray):
         raise ValueError(
@@ -109,6 +114,21 @@ def occlude_pair(src_img: Path, src_label: Path, dst_img: Path, dst_label: Path,
     # copyfile, not read/split/join, so empty files and line endings survive intact
     shutil.copyfile(src_label, dst_label)
 
+def _get_bbox(annotation_file:str)->list:
+    """
+    return the BBOX as list of file is present and has content, otherwise, return empty array.
+    Assumes a simple annotation per NREC images
+    """
+    bboxes = []
+    if os.path.getsize(annotation_file)!=0:
+        with open(annotation_file) as file:
+            for line in file:
+                contents = line.split(sep=' ') 
+                x_c,y_c,w,h =float(contents[1]),float(contents[2]),float(contents[3]),float(contents[4])
+                bboxes.append([x_c,y_c,w,h])
+
+    return bboxes
+            
 
 def occlude_split(pairs: list, dst_root: Path, split: str, occlusion: OcclusionBase,
                   copy_factor: float, dry_run: bool = False,

@@ -36,6 +36,6 @@ class OcclusionBase:
         """Canonical name, used as the output filename prefix and registry key."""
         return self._occ_name
 
-    def generate_occluded_image(self, image):
+    def generate_occluded_image(self, image,bboxs:list=[]):
         """Return a degraded copy of `image`, with its height and width unchanged."""
         pass
