@@ -26,8 +26,12 @@ def cli():
     parser = argparse.ArgumentParser(prog="view_image_withbbox",
                                          formatter_class=argparse.RawDescriptionHelpFormatter)
     
-    parser.add_argument("-s", "--source", required=True,
-                            help="src directory of base images in YOLO layout")
+    parser.add_argument("-b", "--base", required=True,
+                            help="base")
+    parser.add_argument("-o", "--original", required=True,
+                                help="original")
+    parser.add_argument("-c", "--occ-dir", required=True,
+                                    help="occ dir")                
 
     parser.add_argument("-t", "--split", required=True,
                                 help="split test|train|val")
@@ -36,17 +40,26 @@ def cli():
 
     args = parser.parse_args()
 
-    DIR = args.source
+    BASE_DIR = args.base
+    ORIG_DIR = args.original
+    OCC_DIR = args.occ_dir
     IMAGE = args.image
     SPLIT = args.split
+    occ_prefix='fogEffect_'
 
-    image_path = DIR+'/images/'+SPLIT+'/'+IMAGE
-    stem = Path(image_path).stem
-    label_path = DIR+'/labels/'+SPLIT+'/'+stem+'.txt'
+    orig_image_path = BASE_DIR+ORIG_DIR+'/images/'+SPLIT+'/'+IMAGE
+    
+    occ_image_path = BASE_DIR+OCC_DIR+'/images/'+SPLIT+'/'+occ_prefix+IMAGE
+    stem = Path(orig_image_path).stem
+    label_path = BASE_DIR+ORIG_DIR+'/labels/'+SPLIT+'/'+stem+'.txt'
 
-    image1 = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    image1 = cv2.imread(orig_image_path, cv2.IMREAD_COLOR)
     # converting BGR to RGB
     image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
+
+    image2 = cv2.imread(occ_image_path, cv2.IMREAD_COLOR)
+    # converting BGR to RGB
+    image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
 
     H,W = image1.shape[0],image1.shape[1]
 
@@ -55,11 +68,17 @@ def cli():
         # x_c,y_c,w,h]
         x0,x1 = int(bbox[0]*W-bbox[2]*W/2),int(bbox[0]*W+bbox[2]*W/2)
         y0,y1 = int(bbox[1]*H-bbox[3]*H/2),int(bbox[1]*H+bbox[3]*H/2)
+        cv2.rectangle(image2, (x0, y0), (x1, y1), (0, 255, 0), 1)
         cv2.rectangle(image1, (x0, y0), (x1, y1), (0, 255, 0), 1)
 
-
-    fig = plt.figure(figsize=(10, 10))
-    plt.imshow(image1)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+    ax1.imshow(image1)
+    ax1.set_title('original')
+    ax1.axis('off')
+    ax2.imshow(image2)
+    ax2.set_title('occluded')
+    ax2.axis('off')
+    plt.tight_layout()
     plt.show()
 
 
