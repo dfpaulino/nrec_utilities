@@ -8,7 +8,7 @@ from nrec_utils.occlusions.occlusion_base import OcclusionBase
 #from nrec_utils.occlusions.utils.lime import LIME
 
 
-# copied from adverse_weather article
+# @Deprecated   copied from adverse_weather article
 def generate_fog_dummy(image, depth, visibility=None, fog_color=None):
     '''
     input:
@@ -146,7 +146,7 @@ def fake_depth_map(image, fov_v=60, cam_h=1.5, tilt_deg=20, z_max=300, sigma_fra
     # rows at/above it are sky/far background and keep z_max
     depth = np.full(H, z_max, dtype=float)
     ground = v > v_h + 1
-    depth[ground] = cam_h / np.sin(phi[ground])   # distance along the ray to the ground
+    depth[ground] = cam_h / np.tan(phi[ground])   # distance along the ray to the ground
     depth = np.clip(depth, 1.0, z_max)
 
     # avoid the step, and use gaussian to smooth distance. 
@@ -217,7 +217,8 @@ class Fog(OcclusionBase):
         foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
 
         return foggy
-    
+
+    # @Deprecated - to remove on code clean up
     def calculate_transmission(self,beta,depth,bboxs=[]):
         """
             calculate transmission based on the depthmap  using Beer-Lambert transmission law
