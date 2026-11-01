@@ -1,5 +1,5 @@
 
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d,gaussian_filter
 import numpy as np
 import random
 import cv2
@@ -8,7 +8,7 @@ from nrec_utils.occlusions.occlusion_base import OcclusionBase
 #from nrec_utils.occlusions.utils.lime import LIME
 
 
-# copied from adverse_weather article
+# @Deprecated   copied from adverse_weather article
 def generate_fog_dummy(image, depth, visibility=None, fog_color=None):
     '''
     input:
@@ -146,13 +146,14 @@ def fake_depth_map(image, fov_v=60, cam_h=1.5, tilt_deg=20, z_max=300, sigma_fra
     # rows at/above it are sky/far background and keep z_max
     depth = np.full(H, z_max, dtype=float)
     ground = v > v_h + 1
-    depth[ground] = cam_h / np.sin(phi[ground])   # distance along the ray to the ground
+    depth[ground] = cam_h / np.tan(phi[ground])   # distance along the ray to the ground
     depth = np.clip(depth, 1.0, z_max)
 
     # avoid the step, and use gaussian to smooth distance. 
     depth = gaussian_filter1d(depth, sigma=sigma_frac * H)
     # expand depth to a 2d. columns (W) are repeated
-    return np.tile(depth[:, None], (1, W))
+    depth_2d = np.tile(depth[:, None], (1, W)) 
+    return depth_2d
 
 def getIlluminationMap_fromGray( img: np.ndarray) -> np.ndarray: 
     """
@@ -173,6 +174,8 @@ class Fog(OcclusionBase):
     # define pxl intensity bins to check if scenario is dark or bright - values obtained by visual inspection!
     ILLUMINATION_BINS=[0,50,150,256]
     ILLUMINATION_TO_FOG = {0: (150, 180), 1: (210, 240), 2: (240, 255)}
+    # eyball adjusted tbh!
+    TRANSMISSION_SIGMA_FACTOR=0.5
 
     def __init__(self, occ_factor):
         #self._lime = LIME(iterations=25, alpha=1.0)
@@ -183,7 +186,7 @@ class Fog(OcclusionBase):
     #    T = self._lime.illumMap()
     #    return T
 
-    def generate_occluded_image(self,image):
+    def generate_occluded_image(self,image,bboxs:list=[]):
        
        # occ_factor [0.1 0.2 0.3], betas from experimental view [0.01 0.02 0.03], and the last is really intense        
        beta = Fog.BETA_BASE*self._occ_factor*10
@@ -196,21 +199,68 @@ class Fog(OcclusionBase):
 
        fog_color=random.randint(Fog.ILLUMINATION_TO_FOG[illumination_bin][0],Fog.ILLUMINATION_TO_FOG[illumination_bin][1])
        #print(f' Illum index is {illumination_bin}- {hist}')
-       foggy_img = self._generate_fog(image=image,beta=beta,fog_color=fog_color)
+       foggy_img = self._generate_fog(image=image,beta=beta,fog_color=fog_color,bboxs=bboxs)
 
        #depth=fake_depth_map(image=image)
        #foggy_img = generate_fog2(image=image,depth=depth,fog_color=fog_color)
        return foggy_img
 
-    def _generate_fog(self,image,beta,fog_color):
+    def _generate_fog(self,image,beta,fog_color,bboxs=[]):
   
         #depth= fake_depth_map_simple(image=image)
         depth= fake_depth_map(image=image,z_max=Fog.MAX_VISIBILITY_Z,sigma_frac=0.1)
         A = np.array([[[fog_color,fog_color,fog_color]]],dtype=np.uint8)
 
         #Light transmission through fog follows the Beer-Lambert law 
-        transmission=np.exp(-beta*depth)
+        transmission=self.calculate_transmission_gaussian(beta,depth,bboxs=bboxs)
         foggy=np.round(image*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A).astype(np.uint8)
         foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
 
         return foggy
+
+    # @Deprecated - to remove on code clean up
+    def calculate_transmission(self,beta,depth,bboxs=[]):
+        """
+            calculate transmission based on the depthmap  using Beer-Lambert transmission law
+        """
+        transmission=np.exp(-beta*depth)
+        H,W=transmission.shape
+
+        for bbox in bboxs:
+            x_c, y_c = int(bbox[0]*W), int(bbox[1]*H)
+            w_half, h_half = int(1.1*bbox[2]*W/2), int(1.1*bbox[3]*H/2)
+            y0, y1 = max(y_c-h_half,0), min(y_c+h_half,H)
+            x0, x1 = max(x_c-w_half,0), min(x_c+w_half,W)
+
+            # transmission at the object's feet (clamped to the image)
+            curr_transmission = transmission[min(y_c+h_half,H-1), min(x_c,W-1)]
+
+            # soft mask: 1 inside the box, fading to 0 outside. The target value must be
+            # a constant over the whole image, otherwise the blurred tail has nothing to blend toward
+            mask=np.zeros((H,W),dtype=np.float32)
+            mask[y0:y1,x0:x1]=1.0
+            mask=gaussian_filter(mask,sigma=0.5*min(w_half,h_half)+1)
+            transmission=mask*curr_transmission+(1-mask)*transmission
+
+        return transmission
+    
+    def calculate_transmission_gaussian(self, beta,depth,bboxs=[]):
+        transmission=np.exp(-beta*depth)
+        H,W=transmission.shape
+
+        
+        for bbox in bboxs:
+            x_c, y_c = int(bbox[0]*W), int(bbox[1]*H)
+            # give extra 10% of box for smoothen
+            w_half, h_half = int(1.0*bbox[2]*W/2), int(1.0*bbox[3]*H/2)
+            y0, y1 = max(y_c-h_half,0), min(y_c+h_half,H)
+            x0, x1 = max(x_c-w_half,0), min(x_c+w_half,W)
+        
+            # transmission at the object's feet or waist?(clamped to the image)
+            target_transmission = transmission[min(y_c+h_half,H-1), min(x_c,W-1)]
+            transmission[y0:y1,x0:x1]=target_transmission
+            #there is a big edge, so we need to smoothen
+            sigma =Fog.TRANSMISSION_SIGMA_FACTOR*min(w_half,h_half)+1
+            transmission=gaussian_filter(transmission,sigma=sigma)
+
+        return transmission

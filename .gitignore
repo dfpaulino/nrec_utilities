@@ -195,7 +195,7 @@ cython_debug/
 .abstra/
 
 # Visual Studio Code
-.vscode/
+#.vscode/
 *.code-workspace
 .history/
 # Temporary file for partial code execution

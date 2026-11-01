@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Migrate NREC to YOLO",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "nrec_utils.migrate_nrec_to_yolo",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                // src layout: make the package importable without installing it
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "--source", "/media/dpaulino/d9278585-8446-4967-a41e-50568bba88e0/AgriImages/NREC",
+                "--dest", "/media/dpaulino/d9278585-8446-4967-a41e-50568bba88e0/AgriImages/NREC/selected",
+                "--copy-factor", "1.0"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+               {
+            "name": "View image with bbox",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "nrec_utils.view_image_withbbox",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                // src layout: make the package importable without installing it
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "--base", "/media/dpaulino/31c12798-f2e4-45f8-9614-3dd2fec82907/agriImages/content/nrec",
+                "--original","/selected",
+                "--occ-dir","/occluded_3",
+                "--split", "train",
+                "--image", "Image_0_0_1447100698.261.png"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

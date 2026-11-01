@@ -13,7 +13,7 @@ class MotionVibration(OcclusionBase):
     def __init__(self, occ_factor):
         super().__init__(occ_factor, MotionVibration.OCCLUSION_NAME)
 
-    def generate_occluded_image(self,image):
+    def generate_occluded_image(self,image,bboxs:list=[]):
         # based on min image shape and INTERNAL_FACTOR (educated guess) will provide the kernel's size
         # bigger size more vibration induced
         # at least 1: a 0-size kernel makes cv2.filter2D fail (1x1 kernel returns the image unchanged)
