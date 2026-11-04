@@ -109,7 +109,7 @@ class Smoke(OcclusionBase):
        """
        
        # occ_factor [0.1 0.2 0.3], betas from experimental observation       
-       beta = Smoke.BETA_BASE*self._occ_factor*10
+       beta = Smoke.BETA_BASE*self._occ_factor*4
        # create the fake depth
        depth= fake_depth_map(image=image,z_max=Smoke.MAX_VISIBILITY_Z,sigma_frac=0.1)
 
@@ -117,7 +117,8 @@ class Smoke(OcclusionBase):
 
        # some contol on smoke density 1.5 is part of the control
        # occ 0.1 0.2 0.2 -> 15% 30% 45 density
-       smoke_density = (self._occ_factor*1.6)*smoke2d/255.0
+       #smoke_density = (self._occ_factor*1.6)*smoke2d/255.0
+       smoke_density = smoke2d/255.0
        transmission = self.calculate_transmission_gaussian(beta=beta,depth=depth,density=smoke_density)
        
 
