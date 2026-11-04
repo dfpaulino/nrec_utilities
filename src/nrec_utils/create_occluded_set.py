@@ -95,8 +95,18 @@ def occlude_pair(src_img: Path, src_label: Path, dst_img: Path, dst_label: Path,
 
     # read the annotation file, if not empty read the bboxs
     bboxs=_get_bbox(src_label)
+
+    #use the final file number as seed src_img is Path :)
+    seed_number=42
+    try:
+        base_img_file = src_img.stem
+        #
+        seed_number=(int(base_img_file.split(".")[-1]))%100
+    except ValueError:
+        print(f'occlude_pair: using default seed for file {base_img_file}')
+
     
-    occluded = occlusion.generate_occluded_image(image=image,bboxs=bboxs)
+    occluded = occlusion.generate_occluded_image(image=image,bboxs=bboxs,seed=seed_number)
 
     if not isinstance(occluded, np.ndarray):
         raise ValueError(

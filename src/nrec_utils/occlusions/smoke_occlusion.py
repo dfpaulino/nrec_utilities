@@ -52,7 +52,7 @@ def adjust_brightness_simple(image:np.ndarray, factor:float)->np.ndarray:
             if factor is <1, then brightness is reduced eg factor=0.8 is 20% reduction
     """
 
-    beta = -np.mean(cv2.cvtColor(image,cv2.COLOR_RGB2GRAY))*(1-factor)
+    beta = -np.mean(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY))*(1-factor)
     # cant use convertScaleAbs() as negative values can become positve
     # openCV applies saturate at the end
     new_img=cv2.addWeighted(image, factor, np.zeros_like(image), 0, beta)  
@@ -71,7 +71,7 @@ def adjust_brightness_bisection(image:np.ndarray,factor:float,interations:int=10
     # approximation of sRGB to linear. Gamma correction
     image_lin = (image/255.0)**2.2
     
-    gray_before = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray_before = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     target = factor * cv2.mean(gray_before)[0]
     # Find the illumination scale that gives the target brightness (bisection)
 
@@ -82,7 +82,7 @@ def adjust_brightness_bisection(image:np.ndarray,factor:float,interations:int=10
         out_sRGB=np.clip((image_lin*k)**(1/2.2),0.0,1.0)
         out_sRGB = (out_sRGB*255).astype(np.uint8)
 
-        if cv2.mean(cv2.cvtColor(out_sRGB, cv2.COLOR_RGB2GRAY))[0] > target:
+        if cv2.mean(cv2.cvtColor(out_sRGB, cv2.COLOR_BGR2GRAY))[0] > target:
             hi=k
         else:
             lo=k     
@@ -103,7 +103,7 @@ class Smoke(OcclusionBase):
         super().__init__(occ_factor, Smoke.OCCLUSION_NAME)
 
 
-    def generate_occluded_image(self,image,bboxs:list=[]):
+    def generate_occluded_image(self,image,bboxs:list=[],seed:int=42):
        """
        Overrides base method
        """
@@ -113,10 +113,11 @@ class Smoke(OcclusionBase):
        # create the fake depth
        depth= fake_depth_map(image=image,z_max=Smoke.MAX_VISIBILITY_Z,sigma_frac=0.1)
 
-       smoke2d = self.generate_random_smoke2d(image)
-       
+       smoke2d = self.generate_random_smoke2d(image,seed=seed)
 
-       smoke_density = smoke2d/255.0
+       # some contol on smoke density 1.5 is part of the control
+       # occ 0.1 0.2 0.2 -> 15% 30% 45 density
+       smoke_density = (self._occ_factor*1.6)*smoke2d/255.0
        transmission = self.calculate_transmission_gaussian(beta=beta,depth=depth,density=smoke_density)
        
 
@@ -148,9 +149,12 @@ class Smoke(OcclusionBase):
 
        return smoky_sRGB.astype(np.uint8)
 
-    def generate_random_smoke2d(self,image:np.ndarray)->np.ndarray:
+    def generate_random_smoke2d(self,image:np.ndarray,seed:int=42)->np.ndarray:
         """
         Generate a 2D smoke cloud based on perlin noise
+        Input 
+            image used for shape
+            seed: int used as seed for random generation
         """
         shape=image.shape
         # things to tune
@@ -162,8 +166,8 @@ class Smoke(OcclusionBase):
         noise = vnoise.Noise()
         y=np.linspace(0,shape[0]/scale,shape[0])
         x=np.linspace(0,shape[1]/scale,shape[1])
-        # TODO use random number for base to generate realistic random  effects
-        smoke2d = noise.noise2(y,x,grid_mode=True,octaves=octaves,persistence=persistence,lacunarity=lacunarity,base=51)
+        
+        smoke2d = noise.noise2(y,x,grid_mode=True,octaves=octaves,persistence=persistence,lacunarity=lacunarity,base=seed)
 
         smoke2d=((smoke2d-np.min(smoke2d))/(np.max(smoke2d)-np.min(smoke2d))*255).astype("uint8")
 

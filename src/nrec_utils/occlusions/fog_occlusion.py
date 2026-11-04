@@ -158,8 +158,9 @@ def fake_depth_map(image, fov_v=60, cam_h=1.5, tilt_deg=20, z_max=300, sigma_fra
 def getIlluminationMap_fromGray( img: np.ndarray) -> np.ndarray: 
     """
     Convert image to Grayscale
+    Input image in BGR (default openCV)
     """
-    T = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY);
+    T = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY);
     return T
 
 
@@ -186,7 +187,7 @@ class Fog(OcclusionBase):
     #    T = self._lime.illumMap()
     #    return T
 
-    def generate_occluded_image(self,image,bboxs:list=[]):
+    def generate_occluded_image(self,image,bboxs:list=[],seed:int=42):
        
        # occ_factor [0.1 0.2 0.3], betas from experimental view [0.01 0.02 0.03], and the last is really intense        
        beta = Fog.BETA_BASE*self._occ_factor*10
