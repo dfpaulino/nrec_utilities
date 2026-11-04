@@ -24,7 +24,7 @@ class OcclusionBase:
     """
 
     def __init__(self,occ_factor:float,occ_name:str):
-        print (f'INFO - creating occlusion instance of {occ_name}')
+        print (f'INFO - creating occlusion instance of {occ_name} with factor {occ_factor}')
         self._occ_factor=occ_factor
         self._occ_name=occ_name
         
