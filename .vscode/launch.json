@@ -33,10 +33,11 @@
                 "PYTHONPATH": "${workspaceFolder}/src"
             },
             "args": [
-                "--base", "/media/dpaulino/31c12798-f2e4-45f8-9614-3dd2fec82907/agriImages/content/nrec",
-                "--original","/selected",
-                "--occ-dir","/occluded_3",
+                "--base", "/media/dpaulino/31c12798-f2e4-45f8-9614-3dd2fec82907/agriImages/content/nrec/",
+                "--original","selected",
+                "--occ-dir","occluded_3",
                 "--split", "train",
+                "--prefix","smoke_",
                 "--image", "Image_0_0_1447100698.261.png"
             ],
             "console": "integratedTerminal",

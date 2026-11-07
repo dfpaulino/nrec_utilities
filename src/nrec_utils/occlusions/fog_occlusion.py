@@ -171,6 +171,8 @@ class Fog(OcclusionBase):
     OCCLUSION_NAME='fogEffect'
     BETA_BASE=0.04
     MAX_VISIBILITY_Z = 50 # meters
+    # to avoid 0% transmission, we cap to min of X%
+    MIN_TRANSMISSION=0.05
 
     # define pxl intensity bins to check if scenario is dark or bright - values obtained by visual inspection!
     ILLUMINATION_BINS=[0,50,150,256]
@@ -214,6 +216,10 @@ class Fog(OcclusionBase):
 
         #Light transmission through fog follows the Beer-Lambert law 
         transmission=self.calculate_transmission_gaussian(beta,depth,bboxs=bboxs)
+        #cap min transmission to avoid near 0%
+        # should we clip the mmin or add?
+        transmission = np.clip(transmission,Fog.MIN_TRANSMISSION,1.0)
+
         foggy=np.round(image*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A).astype(np.uint8)
         foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
 

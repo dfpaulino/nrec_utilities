@@ -95,6 +95,8 @@ class Smoke(OcclusionBase):
     OCCLUSION_NAME='smoke'
     BETA_BASE=0.06
     MAX_VISIBILITY_Z = 50 # meters
+    # to avoid 0% transmission, we cap to min of X%
+    MIN_TRANSMISSION=0.05
 
     # eyball adjusted tbh!
     TRANSMISSION_SIGMA_FACTOR=0.5
@@ -108,20 +110,23 @@ class Smoke(OcclusionBase):
        Overrides base method
        """
        
-       # occ_factor [0.1 0.2 0.3], betas from experimental observation       
-       beta = Smoke.BETA_BASE*self._occ_factor*4
+       #
        # create the fake depth
        depth= fake_depth_map(image=image,z_max=Smoke.MAX_VISIBILITY_Z,sigma_frac=0.1)
 
        smoke2d = self.generate_random_smoke2d(image,seed=seed)
-
-       # some contol on smoke density 1.5 is part of the control
-       # occ 0.1 0.2 0.2 -> 15% 30% 45 density
-       #smoke_density = (self._occ_factor*1.6)*smoke2d/255.0
        smoke_density = smoke2d/255.0
-       transmission = self.calculate_transmission_gaussian(beta=beta,depth=depth,density=smoke_density)
-       
 
+       #occ_factor [0.1 0.2 0.3], betas from experimental observation 
+       # TODO the 4 factor was based on experimental observation... to add it to BETA_BASE      
+       beta = Smoke.BETA_BASE*self._occ_factor*4
+       
+       transmission = self.calculate_transmission_gaussian(beta=beta,depth=depth,density=smoke_density)
+
+       # print(f'beta {beta} transmission before min cap {np.min(transmission)}-{np.max(transmission)}')
+       # should we clip the mmin or add?
+       transmission = np.clip(transmission,Smoke.MIN_TRANSMISSION,1.0)
+       
        # darken the image and add smoke based on the transmission factor steps of 15% for occ [0.1 0.2 0.3]
        bright_pc=1.0-(0.15*10*self._occ_factor) #85% 70% 55% occ [0.1 0.2 0.3]
 
@@ -139,8 +144,8 @@ class Smoke(OcclusionBase):
        smoky=image_lin*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*smoke3d_lin
     
        # From above, the transmission at low distance is very high, removing most of the smoke effect at low distance.
-       # However its needed as with depthness smoke will restrict visibility..similar to fog. But we also need 
-       #some smoke effect at low distance (0.1 0.2 0.3 -> blend 10-20-30%)
+       # With depth smoke will restrict visibility..similar to fog. But we also need 
+       # some smoke effect at low distance (0.1 0.2 0.3 -> blend 10-20-30%)
        alpha_blend=1-self._occ_factor
        beta_blend = (1-alpha_blend)
        smoky=cv2.addWeighted(smoky, alpha_blend, smoke3d_lin, beta_blend, 0.0)
@@ -169,7 +174,7 @@ class Smoke(OcclusionBase):
         x=np.linspace(0,shape[1]/scale,shape[1])
         
         smoke2d = noise.noise2(y,x,grid_mode=True,octaves=octaves,persistence=persistence,lacunarity=lacunarity,base=seed)
-
+        #normalize smoke [0.0-1.0]
         smoke2d=((smoke2d-np.min(smoke2d))/(np.max(smoke2d)-np.min(smoke2d))*255).astype("uint8")
 
         #smoke2d_gaus = cv2.GaussianBlur(smoke2d,(1,1),0)
