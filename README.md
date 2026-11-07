@@ -396,4 +396,9 @@ then re-run `pip install -e . --group dev`.
 - Python >= 3.13
 - numpy >= 2.5 (runtime, used by `nrec_utils.occlusions`)
 - opencv-python >= 5.0 (runtime, used by `nrec_utils.occlusions`)
+- scipy >= 1.18.1 (runtime, used by `nrec_utils.occlusions`)
+- scikit-image >= 0.26.0 (runtime)
+- tqdm >= 4.70.1 (runtime)
+- vnoise >= 0.1.0 (runtime, Perlin noise for the smoke occlusion)
+- setuptools >= 81, < 82 (runtime; vnoise imports `pkg_resources`, which setuptools 82 removed)
 - pytest for development (installed by `pip install -e . --group dev`)
