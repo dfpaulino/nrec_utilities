@@ -27,16 +27,18 @@ def cli():
                                          formatter_class=argparse.RawDescriptionHelpFormatter)
     
     parser.add_argument("-b", "--base", required=True,
-                            help="base")
+                            help="base dir with /")
     parser.add_argument("-o", "--original", required=True,
-                                help="original")
+                                help="dir with original images with no /")
     parser.add_argument("-c", "--occ-dir", required=True,
-                                    help="occ dir")                
+                                    help="occ dir with no /")                
 
     parser.add_argument("-t", "--split", required=True,
                                 help="split test|train|val")
     parser.add_argument("-i", "--image", required=True,
                                     help="image")
+    parser.add_argument("-p", "--prefix", required=True,
+                                    help="prefix")
 
     args = parser.parse_args()
 
@@ -45,7 +47,7 @@ def cli():
     OCC_DIR = args.occ_dir
     IMAGE = args.image
     SPLIT = args.split
-    occ_prefix='fogEffect_'
+    occ_prefix=args.prefix
 
     orig_image_path = BASE_DIR+ORIG_DIR+'/images/'+SPLIT+'/'+IMAGE
     

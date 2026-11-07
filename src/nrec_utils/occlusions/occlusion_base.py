@@ -24,7 +24,7 @@ class OcclusionBase:
     """
 
     def __init__(self,occ_factor:float,occ_name:str):
-        print (f'INFO - creating occlusion instance of {occ_name}')
+        print (f'INFO - creating occlusion instance of {occ_name} with factor {occ_factor}')
         self._occ_factor=occ_factor
         self._occ_name=occ_name
         
@@ -36,6 +36,11 @@ class OcclusionBase:
         """Canonical name, used as the output filename prefix and registry key."""
         return self._occ_name
 
-    def generate_occluded_image(self, image,bboxs:list=[]):
-        """Return a degraded copy of `image`, with its height and width unchanged."""
+    def generate_occluded_image(self, image,bboxs:list=[],seed:int=42):
+        """Return a degraded copy of `image`, with its height and width unchanged.
+        Input:
+            image: nd.array image in the BGR format
+            bbox list locating object: Normalized format [xc,yc,w,h] just as YOLO. empty to ignore
+            seed:integer used as seed value for random distributions
+        """
         pass
