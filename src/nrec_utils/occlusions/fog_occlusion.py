@@ -88,7 +88,7 @@ def generate_fog_dummy(image, depth, visibility=None, fog_color=None):
     I = I_ex + O_p[:,:,None] * I_al
     return I.astype(np.uint8)
 
-# Not in use
+# @Deprecated  Not in use
 def fake_depth_map_simple(image):
   H,W=image.shape[0],image.shape[1]
 
@@ -163,13 +163,41 @@ def getIlluminationMap_fromGray( img: np.ndarray) -> np.ndarray:
     T = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY);
     return T
 
+def adjust_brightness_bisection(image:np.ndarray,factor:float,interations:int=10):
+    """
+    Adjust BGR image brightness untill brigthness is factor of the original
+    Original brightness is calculated from its grayscale.
+     The image is converted to linear space see:
+        Szeliski, R. (2022), Computer Vision: Algorithms and Applications,2nd ed., Springer.
+        The chapter on image formation covers camera radiometric response and gamma.
+    Returns the adjusted image on the sBGR space [0,255]
+    """
+    # approximation of sBGR to linear. Gamma correction
+    image_lin = (image/255.0)**2.2
+    
+    gray_before = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    target = factor * cv2.mean(gray_before)[0]
+    # Find the illumination scale that gives the target brightness (bisection)
 
+    lo,hi=0.0,1.0
+    for _ in range(interations):
+        k = (lo+hi)/2
+        #invert back to sRGB, re-encode
+        out_sBGR=np.clip((image_lin*k)**(1/2.2),0.0,1.0)
+        out_sBGR = (out_sBGR*255).astype(np.uint8)
+
+        if cv2.mean(cv2.cvtColor(out_sBGR, cv2.COLOR_BGR2GRAY))[0] > target:
+            hi=k
+        else:
+            lo=k     
+
+    return out_sBGR  
 
 
 class Fog(OcclusionBase):
 
     OCCLUSION_NAME='fogEffect'
-    BETA_BASE=0.04
+    BETA_BASE=0.03
     MAX_VISIBILITY_Z = 50 # meters
     # to avoid 0% transmission, we cap to min of X%
     MIN_TRANSMISSION=0.05
@@ -220,10 +248,22 @@ class Fog(OcclusionBase):
         # should we clip the mmin or add?
         transmission = np.clip(transmission,Fog.MIN_TRANSMISSION,1.0)
 
-        foggy=np.round(image*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A).astype(np.uint8)
-        foggy = np.clip(foggy, 0, 255,dtype=np.uint8)
+        bright_pc=1.0-(1*self._occ_factor) #90% 80% 70% occ [0.1 0.2 0.3]
+        
+        # work on images in linear space to have better control
+        #image_darken = adjust_brightness_simple(image=image,factor=bright_pc)
+        image_darken=adjust_brightness_bisection(image=image,factor=bright_pc)
 
-        return foggy
+        # As in smoke wemay 
+        image_gamma = (image_darken/255.0)**(2.2)
+        A_gamma = (A/255.0)**(2.2)
+
+        foggy=image_gamma*(transmission[:,:,np.newaxis]) + (1-transmission[:,:,np.newaxis])*A_gamma
+        foggy=(np.clip(foggy**(1/2.2), 0.0, 1.0)*255)
+        
+
+        return foggy.astype(np.uint8)
+
 
     # @Deprecated - to remove on code clean up
     def calculate_transmission(self,beta,depth,bboxs=[]):

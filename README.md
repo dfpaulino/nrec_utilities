@@ -227,7 +227,12 @@ python -m nrec_utils.create_occluded_set --source /path/to/yolo_dataset --dest /
 or with the short options:
 
 ```bash
-python -m nrec_utils.create_occluded_set -s /path/to/yolo_dataset -d /path/to/occ_0.3 -p 0.1 -f 0.3
+python -m nrec_utils.create_occluded_set -source /path/to/yolo_dataset -dest /path/to/occ_0.3 --copy-factor 0.1 --occ-factor 0.3
+```
+example
+```bash
+python -m nrec_utils.create_occluded_set --source /media/dpaulino/31c12798-f2e4-45f8-9614-3dd2fec82907/agriImages/content/nrec/selected --dest /media/dpaulino/31c12798-f2e4-45f8-9614-3dd2fec82907/agriImages/content/nrec/occluded_1 --copy-factor 0.2 --occ-factor 0.1
+
 ```
 
 Check the selection before generating anything:
